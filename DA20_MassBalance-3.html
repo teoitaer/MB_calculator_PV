@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<title>Mass & Balance Calculator (DA20, DA40, DA42)</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 30px; background: #f6f7fb; color:#111; }
+  .container { max-width:1100px; margin: auto; background: #fff; padding: 20px 24px; border-radius: 10px; box-shadow: 0 6px 18px rgba(20,20,40,0.06); }
+  h1 { text-align:center; margin-bottom: 6px; }
+  p.lead { text-align:center; margin-top:0; color:#444; }
+  .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:18px; align-items:start; }
+  label { font-weight:600; display:block; margin-top:10px; }
+  input[type="number"], select { width:100%; padding:8px 10px; margin-top:6px; border:1px solid #d0d6e0; border-radius:6px; box-sizing:border-box; }
+  button { padding:10px 14px; border-radius:8px; background:#2563eb; color:white; border: none; cursor:pointer; margin-top:10px; }
+  button.secondary { background:#6b7280; }
+  .converter { background:#eef6ff; border:1px solid #dbeafe; padding:12px; border-radius:8px; margin-bottom:16px; }
+  table { width:100%; border-collapse:collapse; margin-top:16px; }
+  th, td { border:1px solid #e6e9f2; padding:10px; text-align:center; }
+  th { background:#f1f5f9; font-weight:700; }
+  .result { margin-top:14px; font-weight:700; font-size:16px; }
+  .hidden { display:none; }
+  .small { font-size:13px; color:#374151; margin-top:6px; }
+  .row-inline { display:flex; gap:10px; }
+  .row-inline > * { flex:1; }
+  .muted { color:#6b7280; font-weight:600; }
+  .note { font-size:13px; color:#475569; margin-top:8px; }
+  .warning { color:#b91c1c !important; font-weight:800; }
+  .ok { color:#065f46; font-weight:700; }
+  .alert { margin-top:8px; font-weight:700; color:#b91c1c; }
+  .info { margin-top:8px; font-weight:700; color:#0b5fff; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Mass & Balance Calculator</h1>
+  <p class="lead">Supports DA20, DA40 and DA42 (I-MYOM, I-PVLL). Fuel inputs in <strong>kg</strong>.</p>
+
+  <!-- Fuel converter -->
+  <div class="converter">
+    <strong>Fuel Converter — US Gallons → kg</strong>
+    <div class="grid-2" style="margin-top:8px;">
+      <div>
+        <label>Gallons (US):</label>
+        <input type="number" id="galInput" value="0" step="any" min="0">
+      </div>
+      <div>
+        <label>Fuel type:</label>
+        <select id="fuelType">
+          <option value="avgas">AVGAS (SG 0.72)</option>
+          <option value="jeta1">JET A-1 (SG 0.80)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row-inline" style="margin-top:10px;">
+      <button onclick="convertFuel()">Convert</button>
+      <button class="secondary" onclick="clearConvert()">Clear</button>
+    </div>
+
+    <div class="row-inline small" style="margin-top:8px;">
+      <div id="fuelConvertResult" class="muted">Result: — kg</div>
+      <div class="small">
+        <button class="secondary" onclick="fillFuelMain()">Fill Fuel MAIN</button>
+        <button class="secondary" onclick="fillFuelAux()">Fill Fuel AUX</button>
+      </div>
+    </div>
+
+    <div class="note">Use <em>Fill Fuel MAIN / AUX</em> to copy the converted kg value into the corresponding fuel input fields (visible when DA42 selected). For DA20/DA40 use the Fuel field.</div>
+  </div>
+
+  <!-- Aircraft selector and units -->
+  <div class="grid-2">
+    <div>
+      <label>Select Aircraft:</label>
+      <select id="aircraft" onchange="updateUI()">
+        <option value="I-PVLF">I-PVLF (DA20)</option>
+        <option value="I-PVLG">I-PVLG (DA20)</option>
+        <option value="I-PVLH">I-PVLH (DA20)</option>
+        <option value="I-PVLJ">I-PVLJ (DA40)</option>
+        <option value="I-PVLK">I-PVLK (DA40)</option>
+        <option value="I-MYOM">I-MYOM (DA42)</option>
+        <option value="I-PVLL">I-PVLL (DA42)</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Units / Display:</label>
+      <select id="unit">
+        <option value="kg" selected>Kg / m</option>
+        <option value="lb">Lb / in</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Inputs area -->
+  <h3 style="margin-top:18px;">Inputs</h3>
+
+  <div id="inputsArea">
+
+    <label id="labelFront">Pilot + Passenger (kg):</label>
+    <input type="number" id="inputFront" value="0" step="any" min="0">
+
+    <div id="blockRear" class="hidden">
+      <label>Rear Seats (kg):</label>
+      <input type="number" id="inputRear" value="0" step="any" min="0">
+    </div>
+
+    <div id="blockNoseBaggage" class="hidden">
+      <label>Nose Baggage (kg):</label>
+      <input type="number" id="inputNoseBaggage" value="0" step="any" min="0">
+    </div>
+
+    <div id="blockCabinBaggage" class="hidden">
+      <label>Cabin Baggage (kg):</label>
+      <input type="number" id="inputCabinBaggage" value="0" step="any" min="0">
+    </div>
+
+    <div id="blockExtBaggage" class="hidden">
+      <label>Baggage Extension (kg):</label>
+      <input type="number" id="inputExtBaggage" value="0" step="any" min="0">
+    </div>
+
+    <div id="blockDeIce" class="hidden">
+      <label>De-icing Fluid (kg):</label>
+      <input type="number" id="inputDeIce" value="0" step="any" min="0">
+      <div class="small">(DA42 AFM uses 1.1 kg/liter for de-icing.)</div>
+    </div>
+
+    <div id="blockBaggage" class="hidden">
+      <label>Baggage (kg):</label>
+      <input type="number" id="inputBaggage" value="0" step="any" min="0">
+    </div>
+
+    <div id="blockFuelSingle">
+      <label id="labelFuelSingle">Fuel (kg):</label>
+      <input type="number" id="inputFuel" value="0" step="any" min="0">
+      <div class="small">For DA20/DA40 this is the single fuel quantity (kg).</div>
+    </div>
+
+    <div id="blockFuelMainAux" class="hidden">
+      <label>Fuel MAIN (kg):</label>
+      <input type="number" id="inputFuelMain" value="0" step="any" min="0">
+      <label style="margin-top:8px;">Fuel AUX (kg):</label>
+      <input type="number" id="inputFuelAux" value="0" step="any" min="0">
+    </div>
+
+    <div style="margin-top:12px;">
+      <button onclick="calculate()">Calculate Mass & Balance</button>
+      <button class="secondary" onclick="resetInputs()">Reset inputs</button>
+    </div>
+  </div>
+
+  <table id="resultsTable">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Weight</th>
+        <th>Arm</th>
+        <th>Moment</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Empty Aircraft</td>
+        <td id="tdEmptyW">-</td>
+        <td>-</td>
+        <td id="tdEmptyM">-</td>
+      </tr>
+
+      <tr id="rowFront">
+        <td id="labelRowFront">People / Front Seats</td>
+        <td id="tdFrontW">-</td>
+        <td id="tdFrontA">-</td>
+        <td id="tdFrontM">-</td>
+      </tr>
+
+      <tr id="rowRear" class="hidden">
+        <td>Rear Seats</td>
+        <td id="tdRearW">-</td>
+        <td id="tdRearA">-</td>
+        <td id="tdRearM">-</td>
+      </tr>
+
+      <tr id="rowNose" class="hidden">
+        <td>Nose Baggage</td>
+        <td id="tdNoseW">-</td>
+        <td id="tdNoseA">-</td>
+        <td id="tdNoseM">-</td>
+      </tr>
+
+      <tr id="rowCabin" class="hidden">
+        <td>Cabin Baggage</td>
+        <td id="tdCabinW">-</td>
+        <td id="tdCabinA">-</td>
+        <td id="tdCabinM">-</td>
+      </tr>
+
+      <tr id="rowExt" class="hidden">
+        <td>Baggage Extension</td>
+        <td id="tdExtW">-</td>
+        <td id="tdExtA">-</td>
+        <td id="tdExtM">-</td>
+      </tr>
+
+      <tr id="rowDeIce" class="hidden">
+        <td>De-icing Fluid</td>
+        <td id="tdDeIceW">-</td>
+        <td id="tdDeIceA">-</td>
+        <td id="tdDeIceM">-</td>
+      </tr>
+
+      <tr id="rowBaggageGeneric" class="hidden">
+        <td>Baggage</td>
+        <td id="tdBagW">-</td>
+        <td id="tdBagA">-</td>
+        <td id="tdBagM">-</td>
+      </tr>
+
+      <tr id="rowFuelSingle">
+        <td>Fuel</td>
+        <td id="tdFuelW">-</td>
+        <td id="tdFuelA">-</td>
+        <td id="tdFuelM">-</td>
+      </tr>
+
+      <tr id="rowFuelMain" class="hidden">
+        <td>Fuel MAIN</td>
+        <td id="tdFuelMainW">-</td>
+        <td id="tdFuelMainA">-</td>
+        <td id="tdFuelMainM">-</td>
+      </tr>
+
+      <tr id="rowFuelAux" class="hidden">
+        <td>Fuel AUX</td>
+        <td id="tdFuelAuxW">-</td>
+        <td id="tdFuelAuxA">-</td>
+        <td id="tdFuelAuxM">-</td>
+      </tr>
+
+      <!-- Totals row: mostra il peso totale, il CG (nell'colonna Arm) e il momento totale -->
+      <tr id="rowTotals">
+        <td><strong>Totals</strong></td>
+        <td id="tdTotalW">-</td>
+        <td id="tdTotalA">-</td>
+        <td id="tdTotalM">-</td>
+      </tr>
+
+    </tbody>
+  </table>
+
+  <div class="result" id="finalResult">Totals: —</div>
+  <div id="limitMessage" class="alert hidden"></div>
+
+  <!-- <div class="note" style="margin-top:14px;">
+    Note: Empty weights and empty moments are stored in the database for each aircraft. DA20 envelope uses points A-B-C-D come from AFM.
+  </div> -->
+
+</div>
+
+<script>
+/* ---------------------------
+   Aircraft database
+   All moments in kg·m, arms in meters
+   --------------------------- */
+const aircraftData = {
+
+  // DA20 examples
+  "I-PVLF": {
+    type: "DA20",
+    emptyWeight: 559,
+    emptyMoment: 117.48,
+    arms: { front: 0.143, baggage: 0.824, fuel: 0.824 }
+  },
+  "I-PVLG": {
+    type: "DA20",
+    emptyWeight: 550,
+    emptyMoment: 106.87,
+    arms: { front: 0.143, baggage: 0.824, fuel: 0.824 }
+  },
+  "I-PVLH": {
+    type: "DA20",
+    emptyWeight: 542,
+    emptyMoment: 110.18,
+    arms: { front: 0.143, baggage: 0.824, fuel: 0.824 }
+  },
+
+  // DA40 examples
+  "I-PVLJ": {
+    type: "DA40",
+    emptyWeight: 832,
+    emptyMoment: 2026.79,
+    arms: { front: 2.30, rear: 3.25, baggage: 3.65, fuel: 2.63 }
+  },
+  "I-PVLK": {
+    type: "DA40",
+    emptyWeight: 848.25,
+    emptyMoment: 2085.175,
+    arms: { front: 2.30, rear: 3.25, baggage: 3.65, fuel: 2.63 }
+  },
+
+  // DA42
+  "I-MYOM": {
+    type: "DA42",
+    emptyWeight: 1366,
+    emptyMoment: 3319.25,
+    arms: {
+      front: 2.30,
+      rear: 3.25,
+      fuelMain: 2.63,
+      fuelAux: 3.20,
+      deice: 1.00,
+      noseBag: 0.60,
+      cabinBag: 3.89,
+      extBag: 4.54
+    }
+  },
+
+  "I-PVLL": {
+    type: "DA42",
+    emptyWeight: 1289,
+    emptyMoment: 3113.59,
+    arms: {
+      front: 2.30,
+      rear: 3.25,
+      fuelMain: 2.63,
+      fuelAux: 3.20,
+      deice: 1.00,
+      noseBag: 0.60,
+      cabinBag: 3.89,
+      extBag: 4.54
+    }
+  }
+};
+
+/* Conversion constants */
+const LB_TO_KG = 0.45359237;
+const KG_TO_LB = 2.20462262;
+const M_TO_IN = 39.3700787;
+
+/* Fuel converter constants */
+const LITERS_PER_US_GAL = 3.785411784;
+const SG_AVGAS = 0.72;
+const SG_JETA1 = 0.80;
+
+/* DA20 envelope points (weight in kg, cg in m) */
+const envelopeDA20 = [
+  { x: 750, y: 0.202 }, // A
+  { x: 800, y: 0.205 }, // B
+  { x: 800, y: 0.309 }, // C
+  { x: 750, y: 0.317 }  // D
+];
+const MTOW_DA20 = 800; // kg
+
+/* DA40 envelopes (points as {x:weight, y:cg}) */
+/* I-PVLJ:
+   forward: 2.40 m for 780-980, then 2.46 at 1150
+   aft: 2.59 m all weights
+   polygon (approx) built to include forward and aft limits
+*/
+const envelopeDA40_IPVLJ = [
+  { x: 780, y: 2.40 },
+  { x: 980, y: 2.40 },
+  { x: 1150, y: 2.46 },
+  { x: 1150, y: 2.59 },
+  { x: 780, y: 2.59 }
+];
+
+/* I-PVLK:
+   forward: 2.40 m for 780-980 (and assumed forward 2.40 up to 1150)
+   aft: 2.55 m all weights
+*/
+const envelopeDA40_IPVLK = [
+  { x: 780, y: 2.40 },
+  { x: 980, y: 2.40 },
+  { x: 1150, y: 2.40 },
+  { x: 1150, y: 2.55 },
+  { x: 780, y: 2.55 }
+];
+
+const MTOW_DA40 = 1150; // kg
+const NORMAL_UTILITY_THRESHOLD_DA40 = 980; // kg
+
+/* Helper: format weight/moment/arm based on unit display */
+function fmtWeight(valKg) {
+  const unit = document.getElementById('unit').value;
+  if (isNaN(valKg)) return "-";
+  if (unit === 'lb') return (valKg * KG_TO_LB).toFixed(1) + " lb";
+  return valKg.toFixed(1) + " kg";
+}
+function fmtMoment(valKgM) {
+  const unit = document.getElementById('unit').value;
+  if (isNaN(valKgM)) return "-";
+  if (unit === 'lb') {
+    // convert kg·m -> lb·in  : val * KG_TO_LB * M_TO_IN
+    return (valKgM * KG_TO_LB * M_TO_IN).toFixed(1) + " lb·in";
+  }
+  return valKgM.toFixed(2) + " kg·m";
+}
+function fmtArm(m) {
+  const unit = document.getElementById('unit').value;
+  if (isNaN(m)) return "-";
+  if (unit === 'lb') return (m * M_TO_IN).toFixed(2) + " in";
+  return m.toFixed(3) + " m";
+}
+
+/* ---------- Point-in-polygon for envelope check (ray-casting) ----------
+   polygon: array of points [{x, y}, ...]
+   point: {x, y}
+   returns true if point is inside or on edge
+*/
+function pointInPolygon(point, polygon) {
+  const x = point.x, y = point.y;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+
+    // check if point exactly on a segment (colinear + within bounds)
+    const cross = (y - yi) * (xj - xi) - (yj - yi) * (x - xi);
+    const onSegment = Math.abs(cross) < 1e-9 &&
+                      (x >= Math.min(xi, xj) - 1e-9 && x <= Math.max(xi, xj) + 1e-9) &&
+                      (y >= Math.min(yi, yj) - 1e-9 && y <= Math.max(yi, yj) + 1e-9);
+    if (onSegment) return true;
+
+    const intersect = ((yi > y) !== (yj > y)) &&
+                      (x < (xj - xi) * (y - yi) / (yj - yi + 0.0) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/* ---------- UI update when aircraft changes ---------- */
+function updateUI() {
+  const ac = document.getElementById('aircraft').value;
+  const data = aircraftData[ac];
+
+  // hide everything by default
+  document.getElementById('blockRear').classList.add('hidden');
+  document.getElementById('blockBaggage').classList.add('hidden');
+  document.getElementById('blockNoseBaggage').classList.add('hidden');
+  document.getElementById('blockCabinBaggage').classList.add('hidden');
+  document.getElementById('blockExtBaggage').classList.add('hidden');
+  document.getElementById('blockDeIce').classList.add('hidden');
+  document.getElementById('blockFuelMainAux').classList.add('hidden');
+  document.getElementById('blockFuelSingle').classList.remove('hidden');
+
+  // hide result rows
+  document.getElementById('rowRear').classList.add('hidden');
+  document.getElementById('rowNose').classList.add('hidden');
+  document.getElementById('rowCabin').classList.add('hidden');
+  document.getElementById('rowExt').classList.add('hidden');
+  document.getElementById('rowDeIce').classList.add('hidden');
+  document.getElementById('rowBaggageGeneric').classList.add('hidden');
+  document.getElementById('rowFuelMain').classList.add('hidden');
+  document.getElementById('rowFuelAux').classList.add('hidden');
+  document.getElementById('rowFuelSingle').classList.remove('hidden');
+
+  // defaults
+  document.getElementById('labelFront').innerText = "Pilot + Passenger (kg):";
+  document.getElementById('labelFuelSingle').innerText = "Fuel (kg):";
+  document.getElementById('labelRowFront').innerText = "People / Front Seats";
+
+  // show/hide based on type
+  if (data.type === "DA20") {
+    // DA20: front, baggage (single), fuel single
+    document.getElementById('blockBaggage').classList.remove('hidden');
+    document.getElementById('rowBaggageGeneric').classList.remove('hidden');
+    document.getElementById('labelFront').innerText = "Pilot + Passenger (kg):";
+  } else if (data.type === "DA40") {
+    // DA40: front, rear, baggage (single), fuel single
+    document.getElementById('blockRear').classList.remove('hidden');
+    document.getElementById('blockBaggage').classList.remove('hidden');
+    document.getElementById('rowRear').classList.remove('hidden');
+    document.getElementById('rowBaggageGeneric').classList.remove('hidden');
+    document.getElementById('labelFront').innerText = "Front Seats (kg):";
+  } else if (data.type === "DA42") {
+    // DA42: front, rear, nose, cabin, ext, deice, fuel main & aux
+    document.getElementById('blockRear').classList.remove('hidden');
+    document.getElementById('blockNoseBaggage').classList.remove('hidden');
+    document.getElementById('blockCabinBaggage').classList.remove('hidden');
+    document.getElementById('blockExtBaggage').classList.remove('hidden');
+    document.getElementById('blockDeIce').classList.remove('hidden');
+    document.getElementById('blockFuelMainAux').classList.remove('hidden');
+    document.getElementById('blockFuelSingle').classList.add('hidden');
+
+    document.getElementById('rowRear').classList.remove('hidden');
+    document.getElementById('rowNose').classList.remove('hidden');
+    document.getElementById('rowCabin').classList.remove('hidden');
+    document.getElementById('rowExt').classList.remove('hidden');
+    document.getElementById('rowDeIce').classList.remove('hidden');
+    document.getElementById('rowFuelMain').classList.remove('hidden');
+    document.getElementById('rowFuelAux').classList.remove('hidden');
+
+    document.getElementById('labelFront').innerText = "Front Seats (kg):";
+    document.getElementById('labelRowFront').innerText = "Front Seats";
+  }
+
+  // Update empty weight/moment display immediately
+  document.getElementById('tdEmptyW').innerText = fmtWeight(data.emptyWeight);
+  document.getElementById('tdEmptyM').innerText = fmtMoment(data.emptyMoment);
+
+  // clear results
+  clearResultsDisplay();
+}
+
+/* ---------- Fuel conversion ---------- */
+let lastConvertedKg = 0;
+function convertFuel() {
+  const gal = parseFloat(document.getElementById('galInput').value) || 0;
+  const type = document.getElementById('fuelType').value;
+  const sg = (type === 'avgas') ? SG_AVGAS : SG_JETA1;
+  const kg = gal * LITERS_PER_US_GAL * sg;
+  lastConvertedKg = kg;
+  document.getElementById('fuelConvertResult').innerText = "Result: " + kg.toFixed(2) + " kg";
+}
+function clearConvert() {
+  document.getElementById('galInput').value = 0;
+  lastConvertedKg = 0;
+  document.getElementById('fuelConvertResult').innerText = "Result: — kg";
+}
+function fillFuelMain() {
+  if (!lastConvertedKg && lastConvertedKg !== 0) convertFuel();
+  const ac = document.getElementById('aircraft').value;
+  const t = aircraftData[ac].type;
+  if (t === 'DA42') {
+    document.getElementById('inputFuelMain').value = lastConvertedKg.toFixed(2);
+  } else {
+    document.getElementById('inputFuel').value = lastConvertedKg.toFixed(2);
+  }
+}
+function fillFuelAux() {
+  if (!lastConvertedKg && lastConvertedKg !== 0) convertFuel();
+  const ac = document.getElementById('aircraft').value;
+  const t = aircraftData[ac].type;
+  if (t === 'DA42') {
+    document.getElementById('inputFuelAux').value = lastConvertedKg.toFixed(2);
+  } else {
+    document.getElementById('inputFuel').value = lastConvertedKg.toFixed(2);
+  }
+}
+
+/* ---------- Reset inputs/results ---------- */
+function resetInputs() {
+  document.getElementById('inputFront').value = 0;
+  document.getElementById('inputRear').value = 0;
+  document.getElementById('inputBaggage').value = 0;
+  document.getElementById('inputFuel').value = 0;
+  document.getElementById('inputFuelMain').value = 0;
+  document.getElementById('inputFuelAux').value = 0;
+  document.getElementById('inputNoseBaggage').value = 0;
+  document.getElementById('inputCabinBaggage').value = 0;
+  document.getElementById('inputExtBaggage').value = 0;
+  document.getElementById('inputDeIce').value = 0;
+  clearResultsDisplay();
+}
+
+/* ---------- Clear displayed result table values ---------- */
+function clearResultsDisplay() {
+  // empty
+  document.getElementById('tdFrontW').innerText = "-";
+  document.getElementById('tdFrontA').innerText = "-";
+  document.getElementById('tdFrontM').innerText = "-";
+  // rear
+  document.getElementById('tdRearW').innerText = "-";
+  document.getElementById('tdRearA').innerText = "-";
+  document.getElementById('tdRearM').innerText = "-";
+  // nose
+  document.getElementById('tdNoseW').innerText = "-";
+  document.getElementById('tdNoseA').innerText = "-";
+  document.getElementById('tdNoseM').innerText = "-";
+  // cabin
+  document.getElementById('tdCabinW').innerText = "-";
+  document.getElementById('tdCabinA').innerText = "-";
+  document.getElementById('tdCabinM').innerText = "-";
+  // ext
+  document.getElementById('tdExtW').innerText = "-";
+  document.getElementById('tdExtA').innerText = "-";
+  document.getElementById('tdExtM').innerText = "-";
+  // deice
+  document.getElementById('tdDeIceW').innerText = "-";
+  document.getElementById('tdDeIceA').innerText = "-";
+  document.getElementById('tdDeIceM').innerText = "-";
+  // baggage generic
+  document.getElementById('tdBagW').innerText = "-";
+  document.getElementById('tdBagA').innerText = "-";
+  document.getElementById('tdBagM').innerText = "-";
+  // fuel single
+  document.getElementById('tdFuelW').innerText = "-";
+  document.getElementById('tdFuelA').innerText = "-";
+  document.getElementById('tdFuelM').innerText = "-";
+  // fuel main/aux
+  document.getElementById('tdFuelMainW').innerText = "-";
+  document.getElementById('tdFuelMainA').innerText = "-";
+  document.getElementById('tdFuelMainM').innerText = "-";
+  document.getElementById('tdFuelAuxW').innerText = "-";
+  document.getElementById('tdFuelAuxA').innerText = "-";
+  document.getElementById('tdFuelAuxM').innerText = "-";
+
+  // totals
+  document.getElementById('tdTotalW').innerText = "-";
+  document.getElementById('tdTotalA').innerText = "-";
+  document.getElementById('tdTotalM').innerText = "-";
+
+  // final
+  document.getElementById('finalResult').innerText = "Totals: —";
+  document.getElementById('finalResult').classList.remove('warning', 'ok');
+  const lm = document.getElementById('limitMessage');
+  lm.classList.add('hidden'); lm.innerText = "";
+  // remove warnings on totals row
+  document.getElementById('tdTotalW').classList.remove('warning','ok');
+  document.getElementById('tdTotalA').classList.remove('warning','ok');
+}
+
+/* ---------- Main calculation ---------- */
+function calculate() {
+  const ac = document.getElementById('aircraft').value;
+  const data = aircraftData[ac];
+  const type = data.type;
+  const unit = document.getElementById('unit').value;
+
+  // read inputs (numbers in kg as user requested)
+  const frontKg = parseFloat(document.getElementById('inputFront').value) || 0;
+  const rearKg = parseFloat(document.getElementById('inputRear').value) || 0;
+  const bagKg = parseFloat(document.getElementById('inputBaggage').value) || 0;
+  const fuelKgSingle = parseFloat(document.getElementById('inputFuel').value) || 0;
+  const fuelMainKg = parseFloat(document.getElementById('inputFuelMain').value) || 0;
+  const fuelAuxKg = parseFloat(document.getElementById('inputFuelAux').value) || 0;
+  const noseKg = parseFloat(document.getElementById('inputNoseBaggage').value) || 0;
+  const cabinKg = parseFloat(document.getElementById('inputCabinBaggage').value) || 0;
+  const extKg = parseFloat(document.getElementById('inputExtBaggage').value) || 0;
+  const deIceKg = parseFloat(document.getElementById('inputDeIce').value) || 0;
+
+  // extract arms
+  const arms = data.arms;
+
+  // initialize totals with empty aircraft
+  let totalWeight = data.emptyWeight;
+  let totalMoment = data.emptyMoment;
+
+  // clear any previous messages
+  const lm = document.getElementById('limitMessage');
+  lm.classList.add('hidden'); lm.innerText = "";
+
+  // compute each component and moments
+  // front
+  const momentFront = frontKg * arms.front;
+  totalWeight += frontKg;
+  totalMoment += momentFront;
+  document.getElementById('tdFrontW').innerText = fmtWeight(frontKg);
+  document.getElementById('tdFrontA').innerText = fmtArm(arms.front);
+  document.getElementById('tdFrontM').innerText = fmtMoment(momentFront);
+
+  if (type === 'DA20') {
+    // baggage generic; fuel single
+    const momentBag = bagKg * arms.baggage;
+    const momentFuel = fuelKgSingle * arms.fuel;
+
+    totalWeight += bagKg + fuelKgSingle;
+    totalMoment += momentBag + momentFuel;
+
+    // update rows
+    document.getElementById('rowBaggageGeneric').classList.remove('hidden');
+    document.getElementById('tdBagW').innerText = fmtWeight(bagKg);
+    document.getElementById('tdBagA').innerText = fmtArm(arms.baggage);
+    document.getElementById('tdBagM').innerText = fmtMoment(momentBag);
+
+    document.getElementById('tdFuelW').innerText = fmtWeight(fuelKgSingle);
+    document.getElementById('tdFuelA').innerText = fmtArm(arms.fuel);
+    document.getElementById('tdFuelM').innerText = fmtMoment(momentFuel);
+
+    // hide DA42-specific rows if visible
+    document.getElementById('rowFuelMain').classList.add('hidden');
+    document.getElementById('rowFuelAux').classList.add('hidden');
+
+  } else if (type === 'DA40') {
+    // rear, baggage, single fuel
+    const momentRear = rearKg * arms.rear;
+    const momentBag = bagKg * arms.baggage;
+    const momentFuel = fuelKgSingle * arms.fuel;
+
+    totalWeight += rearKg + bagKg + fuelKgSingle;
+    totalMoment += momentRear + momentBag + momentFuel;
+
+    // update rows
+    document.getElementById('rowRear').classList.remove('hidden');
+    document.getElementById('tdRearW').innerText = fmtWeight(rearKg);
+    document.getElementById('tdRearA').innerText = fmtArm(arms.rear);
+    document.getElementById('tdRearM').innerText = fmtMoment(momentRear);
+
+    document.getElementById('rowBaggageGeneric').classList.remove('hidden');
+    document.getElementById('tdBagW').innerText = fmtWeight(bagKg);
+    document.getElementById('tdBagA').innerText = fmtArm(arms.baggage);
+    document.getElementById('tdBagM').innerText = fmtMoment(momentBag);
+
+    document.getElementById('tdFuelW').innerText = fmtWeight(fuelKgSingle);
+    document.getElementById('tdFuelA').innerText = fmtArm(arms.fuel);
+    document.getElementById('tdFuelM').innerText = fmtMoment(momentFuel);
+
+    // hide DA42-specific rows
+    document.getElementById('rowFuelMain').classList.add('hidden');
+    document.getElementById('rowFuelAux').classList.add('hidden');
+
+  } else if (type === 'DA42') {
+    // DA42: many compartments; fuel main & aux
+    const momentRear = rearKg * arms.rear;
+    const momentNose = noseKg * arms.noseBag;
+    const momentCabin = cabinKg * arms.cabinBag;
+    const momentExt = extKg * arms.extBag;
+    const momentDeIce = deIceKg * arms.deice;
+    const momentFuelMain = fuelMainKg * arms.fuelMain;
+    const momentFuelAux = fuelAuxKg * arms.fuelAux;
+
+    totalWeight += rearKg + noseKg + cabinKg + extKg + deIceKg + fuelMainKg + fuelAuxKg;
+    totalMoment += momentRear + momentNose + momentCabin + momentExt + momentDeIce + momentFuelMain + momentFuelAux;
+
+    // update rows: front already done
+    document.getElementById('rowRear').classList.remove('hidden');
+    document.getElementById('tdRearW').innerText = fmtWeight(rearKg);
+    document.getElementById('tdRearA').innerText = fmtArm(arms.rear);
+    document.getElementById('tdRearM').innerText = fmtMoment(momentRear);
+
+    // nose
+    document.getElementById('rowNose').classList.remove('hidden');
+    document.getElementById('tdNoseW').innerText = fmtWeight(noseKg);
+    document.getElementById('tdNoseA').innerText = fmtArm(arms.noseBag);
+    document.getElementById('tdNoseM').innerText = fmtMoment(momentNose);
+
+    // cabin
+    document.getElementById('rowCabin').classList.remove('hidden');
+    document.getElementById('tdCabinW').innerText = fmtWeight(cabinKg);
+    document.getElementById('tdCabinA').innerText = fmtArm(arms.cabinBag);
+    document.getElementById('tdCabinM').innerText = fmtMoment(momentCabin);
+
+    // ext
+    document.getElementById('rowExt').classList.remove('hidden');
+    document.getElementById('tdExtW').innerText = fmtWeight(extKg);
+    document.getElementById('tdExtA').innerText = fmtArm(arms.extBag);
+    document.getElementById('tdExtM').innerText = fmtMoment(momentExt);
+
+    // de-ice
+    document.getElementById('rowDeIce').classList.remove('hidden');
+    document.getElementById('tdDeIceW').innerText = fmtWeight(deIceKg);
+    document.getElementById('tdDeIceA').innerText = fmtArm(arms.deice);
+    document.getElementById('tdDeIceM').innerText = fmtMoment(momentDeIce);
+
+    // fuel main
+    document.getElementById('rowFuelMain').classList.remove('hidden');
+    document.getElementById('tdFuelMainW').innerText = fmtWeight(fuelMainKg);
+    document.getElementById('tdFuelMainA').innerText = fmtArm(arms.fuelMain);
+    document.getElementById('tdFuelMainM').innerText = fmtMoment(momentFuelMain);
+
+    // fuel aux
+    document.getElementById('rowFuelAux').classList.remove('hidden');
+    document.getElementById('tdFuelAuxW').innerText = fmtWeight(fuelAuxKg);
+    document.getElementById('tdFuelAuxA').innerText = fmtArm(arms.fuelAux);
+    document.getElementById('tdFuelAuxM').innerText = fmtMoment(momentFuelAux);
+
+    // hide generic baggage/fuel single rows
+    document.getElementById('rowBaggageGeneric').classList.add('hidden');
+    document.getElementById('rowFuelSingle').classList.add('hidden');
+  }
+
+  // compute center of gravity (m)
+  const cgMeters = totalMoment / totalWeight;
+
+  // fill summary fields
+  document.getElementById('tdEmptyW').innerText = fmtWeight(data.emptyWeight);
+  document.getElementById('tdEmptyM').innerText = fmtMoment(data.emptyMoment);
+
+  // Totals row update (weight, arm as CG, moment)
+  document.getElementById('tdTotalW').innerText = fmtWeight(totalWeight);
+  document.getElementById('tdTotalA').innerText = fmtArm(cgMeters); // show CG in Arm column
+  document.getElementById('tdTotalM').innerText = fmtMoment(totalMoment);
+
+  // Remove old warning/ok classes
+  document.getElementById('tdTotalW').classList.remove('warning','ok');
+  document.getElementById('tdTotalA').classList.remove('warning','ok');
+  document.getElementById('finalResult').classList.remove('warning','ok');
+  lm.classList.add('hidden'); lm.innerText = "";
+
+  // Default final message
+  if (unit === 'lb') {
+    document.getElementById('finalResult').innerText =
+      "Aircraft: " + ac +
+      " | Total Weight: " + (totalWeight * KG_TO_LB).toFixed(1) + " lb" +
+      " | Total Moment: " + (totalMoment * KG_TO_LB * M_TO_IN).toFixed(1) + " lb·in" +
+      " | CG: " + (cgMeters * M_TO_IN).toFixed(2) + " in";
+  } else {
+    document.getElementById('finalResult').innerText =
+      "Aircraft: " + ac +
+      " | Total Weight: " + totalWeight.toFixed(1) + " kg" +
+      " | Total Moment: " + totalMoment.toFixed(2) + " kg·m" +
+      " | CG: " + cgMeters.toFixed(3) + " m";
+  }
+
+  // -----------------------
+  // Safety / limits checks
+  // -----------------------
+  let outOfEnvelope = false;
+  let overMTOW = false;
+
+  if (type === 'DA20') {
+    // DA20 checks (existing)
+    const pt = { x: totalWeight, y: cgMeters };
+    outOfEnvelope = !pointInPolygon(pt, envelopeDA20);
+    if (totalWeight > MTOW_DA20 + 1e-9) overMTOW = true;
+
+    if (outOfEnvelope) {
+      lm.classList.remove('hidden'); lm.classList.add('alert');
+      lm.innerText = "⚠️ CG fuori inviluppo AFM (DA20). Controllare la distribuzione dei carichi.";
+      document.getElementById('tdTotalA').classList.add('warning');
+      document.getElementById('finalResult').classList.add('warning');
+    } else {
+      document.getElementById('tdTotalA').classList.add('ok');
+    }
+
+    if (overMTOW) {
+      lm.classList.remove('hidden'); lm.classList.add('alert');
+      if (outOfEnvelope) {
+        lm.innerText = "⚠️ CG fuori inviluppo AFM (DA20) · ⚠️ Peso sopra MTOW (800 kg)";
+      } else {
+        lm.innerText = "⚠️ Peso sopra MTOW (800 kg)";
+      }
+      document.getElementById('tdTotalW').classList.add('warning');
+      document.getElementById('finalResult').classList.add('warning');
+    } else {
+      document.getElementById('tdTotalW').classList.add('ok');
+      if (!outOfEnvelope && !overMTOW) {
+        document.getElementById('finalResult').classList.add('ok');
+        lm.classList.remove('alert'); lm.classList.add('info'); lm.classList.remove('hidden');
+        lm.innerText = "✔️ Peso e CG dentro i limiti (DA20).";
+      }
+    }
+
+  } else if (type === 'DA40') {
+    // DA40 checks depend on aircraft
+    const pt = { x: totalWeight, y: cgMeters };
+    let envelope = null;
+    if (ac === 'I-PVLJ') envelope = envelopeDA40_IPVLJ;
+    else if (ac === 'I-PVLK') envelope = envelopeDA40_IPVLK;
+
+    if (envelope) {
+      outOfEnvelope = !pointInPolygon(pt, envelope);
+
+      // MTOW for DA40
+      if (totalWeight > MTOW_DA40 + 1e-9) overMTOW = true;
+
+      // Category Normal / Utility
+      const isNormalCategory = totalWeight > NORMAL_UTILITY_THRESHOLD_DA40 + 1e-9;
+
+      // Build message parts
+      const messages = [];
+
+      if (outOfEnvelope) {
+        messages.push("⚠️ CG fuori inviluppo AFM (DA40).");
+        document.getElementById('tdTotalA').classList.add('warning');
+      } else {
+        document.getElementById('tdTotalA').classList.add('ok');
+      }
+
+      if (overMTOW) {
+        messages.push("⚠️ Peso sopra MTOW (1150 kg).");
+        document.getElementById('tdTotalW').classList.add('warning');
+      } else {
+        document.getElementById('tdTotalW').classList.add('ok');
+      }
+
+      // Category message (Normal if >980)
+      if (isNormalCategory) {
+        messages.push("⚠️ Categoria: NORMAL (peso > 980 kg).");
+      } else {
+        messages.push("✔️ Categoria: UTILITY (peso ≤ 980 kg).");
+      }
+
+      // Compose final UI state
+      if (messages.length > 0) {
+        lm.classList.remove('hidden');
+        // if any critical (outOfEnvelope or overMTOW) present, style as alert
+        if (outOfEnvelope || overMTOW) {
+          lm.classList.remove('info'); lm.classList.add('alert');
+        } else {
+          lm.classList.remove('alert'); lm.classList.add('info');
+        }
+        lm.innerText = messages.join(" · ");
+      }
+
+      // finalResult class
+      if (outOfEnvelope || overMTOW) {
+        document.getElementById('finalResult').classList.add('warning');
+      } else {
+        document.getElementById('finalResult').classList.add('ok');
+      }
+
+    } else {
+      // no envelope defined, mark OK
+      document.getElementById('tdTotalW').classList.add('ok');
+      document.getElementById('tdTotalA').classList.add('ok');
+      document.getElementById('finalResult').classList.add('ok');
+      lm.classList.remove('alert'); lm.classList.add('info'); lm.classList.remove('hidden');
+      lm.innerText = "✔️ Calcolo completato (nessun inviluppo DA40 specifico applicabile).";
+    }
+
+  } else {
+    // DA42 or others: no DA20/DA40 envelope checks
+    document.getElementById('tdTotalW').classList.add('ok');
+    document.getElementById('tdTotalA').classList.add('ok');
+    document.getElementById('finalResult').classList.add('ok');
+    lm.classList.remove('alert'); lm.classList.add('info'); lm.classList.remove('hidden');
+    lm.innerText = "✔️ Calcolo completato (nessun inviluppo DA20/DA40 applicabile a questo aeromobile).";
+  }
+}
+
+/* Initialize UI on page load */
+window.addEventListener('load', function() {
+  updateUI();
+});
+</script>
+</body>
+</html>
