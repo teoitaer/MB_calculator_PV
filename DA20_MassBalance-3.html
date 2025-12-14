@@ -28,69 +28,162 @@
   .ok { color:#065f46; font-weight:700; }
   .alert { margin-top:8px; font-weight:700; color:#b91c1c; }
   .info { margin-top:8px; font-weight:700; color:#0b5fff; }
+
+
+
+
+/* ---------- Mobile full single column (iPhone) ---------- */
+@media (max-width: 480px) {
+  body {
+    margin: 8px;
+    font-size: 13px;
+  }
+
+  .container {
+    padding: 10px;
+  }
+
+  h1 { font-size: 18px; }
+  p.lead { font-size: 12px; }
+
+  /* Trasforma tutte le griglie in colonna singola */
+  .grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+  }
+
+  .row-inline {
+    flex-direction: column !important;
+    gap: 6px;
+  }
+
+  .row-inline > * {
+    flex: 1 1 100% !important;
+  }
+
+  input[type="number"], select, button {
+    width: 100% !important;
+    font-size: 13px;
+    padding: 6px 8px;
+    box-sizing: border-box;
+  }
+
+  button { margin-top: 6px; }
+
+  .converter { padding: 8px; }
+
+  .note, .small { font-size: 11px; }
+  .result { font-size: 14px; }
+
+  /* Trasforma la tabella in layout verticale tipo card */
+  #resultsTable, #resultsTable thead, #resultsTable tbody, #resultsTable th, #resultsTable td, #resultsTable tr {
+    display: block;
+  }
+
+  #resultsTable thead { display: none; }
+
+  #resultsTable tr {
+    margin-bottom: 10px;
+    border: 1px solid #e6e9f2;
+    border-radius: 6px;
+    padding: 6px;
+  }
+
+  #resultsTable td {
+    border: none;
+    padding: 4px 0;
+    text-align: left;
+    position: relative;
+    padding-left: 50%;
+  }
+
+  #resultsTable td::before {
+    position: absolute;
+    left: 10px;
+    width: 45%;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  /* Etichette per ogni cella */
+  #tdEmptyW::before { content: "Empty Weight"; }
+  #tdEmptyM::before { content: "Empty Moment"; }
+
+  #tdFrontW::before { content: "Front Weight"; }
+  #tdFrontA::before { content: "Front Arm"; }
+  #tdFrontM::before { content: "Front Moment"; }
+
+  #tdRearW::before { content: "Rear Weight"; }
+  #tdRearA::before { content: "Rear Arm"; }
+  #tdRearM::before { content: "Rear Moment"; }
+
+  #tdBagW::before { content: "Baggage Weight"; }
+  #tdBagA::before { content: "Baggage Arm"; }
+  #tdBagM::before { content: "Baggage Moment"; }
+
+  #tdFuelW::before { content: "Fuel Weight"; }
+  #tdFuelA::before { content: "Fuel Arm"; }
+  #tdFuelM::before { content: "Fuel Moment"; }
+
+  #tdFuelMainW::before { content: "Fuel MAIN Weight"; }
+  #tdFuelMainA::before { content: "Fuel MAIN Arm"; }
+  #tdFuelMainM::before { content: "Fuel MAIN Moment"; }
+
+  #tdFuelAuxW::before { content: "Fuel AUX Weight"; }
+  #tdFuelAuxA::before { content: "Fuel AUX Arm"; }
+  #tdFuelAuxM::before { content: "Fuel AUX Moment"; }
+
+  #tdTotalW::before { content: "Total Weight"; }
+  #tdTotalA::before { content: "CG"; }
+  #tdTotalM::before { content: "Total Moment"; }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </style>
 </head>
 <body>
 <div class="container">
   <h1>Mass & Balance Calculator</h1>
-  <p class="lead">Supports DA20, DA40 and DA42 (I-MYOM, I-PVLL). Fuel inputs in <strong>kg</strong>.</p>
+  <p class="lead">Supports DA20, DA40 and DA42 (I-MYOM, I-PVLL--------). Fuel inputs in <strong>kg</strong>.</p>
 
   <!-- Fuel converter -->
-  <div class="converter">
-    <strong>Fuel Converter — US Gallons → kg</strong>
-    <div class="grid-2" style="margin-top:8px;">
-      <div>
-        <label>Gallons (US):</label>
-        <input type="number" id="galInput" value="0" step="any" min="0">
-      </div>
-      <div>
-        <label>Fuel type:</label>
-        <select id="fuelType">
-          <option value="avgas">AVGAS (SG 0.72)</option>
-          <option value="jeta1">JET A-1 (SG 0.80)</option>
-        </select>
-      </div>
-    </div>
 
-    <div class="row-inline" style="margin-top:10px;">
-      <button onclick="convertFuel()">Convert</button>
-      <button class="secondary" onclick="clearConvert()">Clear</button>
-    </div>
 
-    <div class="row-inline small" style="margin-top:8px;">
-      <div id="fuelConvertResult" class="muted">Result: — kg</div>
-      <div class="small">
-        <button class="secondary" onclick="fillFuelMain()">Fill Fuel MAIN</button>
-        <button class="secondary" onclick="fillFuelAux()">Fill Fuel AUX</button>
-      </div>
-    </div>
-
-    <div class="note">Use <em>Fill Fuel MAIN / AUX</em> to copy the converted kg value into the corresponding fuel input fields (visible when DA42 selected). For DA20/DA40 use the Fuel field.</div>
+<!-- Aircraft selector and units -->
+<div>
+  <div>
+    <label>Select Aircraft:</label>
+    <select id="aircraft" onchange="updateUI()">
+      <option value="I-PVLF">I-PVLF (DA20)</option>
+      <option value="I-PVLG">I-PVLG (DA20)</option>
+      <option value="I-PVLH">I-PVLH (DA20)</option>
+      <option value="I-PVLJ">I-PVLJ (DA40)</option>
+      <option value="I-PVLK">I-PVLK (DA40)</option>
+      <option value="I-MYOM">I-MYOM (DA42)</option>
+      <option value="I-PVLL">I-PVLL (DA42)</option>
+    </select>
   </div>
 
-  <!-- Aircraft selector and units -->
-  <div class="grid-2">
-    <div>
-      <label>Select Aircraft:</label>
-      <select id="aircraft" onchange="updateUI()">
-        <option value="I-PVLF">I-PVLF (DA20)</option>
-        <option value="I-PVLG">I-PVLG (DA20)</option>
-        <option value="I-PVLH">I-PVLH (DA20)</option>
-        <option value="I-PVLJ">I-PVLJ (DA40)</option>
-        <option value="I-PVLK">I-PVLK (DA40)</option>
-        <option value="I-MYOM">I-MYOM (DA42)</option>
-        <option value="I-PVLL">I-PVLL (DA42)</option>
-      </select>
-    </div>
-
-    <div>
-      <label>Units / Display:</label>
-      <select id="unit">
-        <option value="kg" selected>Kg / m</option>
-        <option value="lb">Lb / in</option>
-      </select>
-    </div>
+  <div>
+    <label>Units / Display:</label>
+    <select id="unit">
+      <option value="kg" selected>Kg / m</option>
+      <option value="lb">Lb / in</option>
+    </select>
   </div>
+</div>
 
   <!-- Inputs area -->
   <h3 style="margin-top:18px;">Inputs</h3>
@@ -130,6 +223,49 @@
       <label>Baggage (kg):</label>
       <input type="number" id="inputBaggage" value="0" step="any" min="0">
     </div>
+
+<!-- Fuel converter -->
+<div class="converter">
+  <strong>Fuel Converter — US Gallons → kg</strong>
+
+  <!-- Inputs in colonna -->
+  <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+    <div>
+      <label>Gallons (US):</label>
+      <input type="number" id="galInput" value="0" step="any" min="0">
+    </div>
+    <div>
+      <label>Fuel type:</label>
+      <select id="fuelType">
+        <option value="avgas">AVGAS (SG 0.72)</option>
+        <option value="jeta1">JET A-1 (SG 0.80)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Buttons in colonna -->
+  <div style="display:flex; flex-direction:column; gap:6px; margin-top:10px;">
+    <button onclick="convertFuel()">Convert</button>
+    <button class="secondary" onclick="clearConvert()">Clear</button>
+  </div>
+
+  <!-- Result and fill buttons in colonna -->
+  <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
+    <div id="fuelConvertResult" class="muted">Result: — kg</div>
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <button class="secondary" onclick="fillFuelMain()">Fill Fuel MAIN</button>
+      <button class="secondary" onclick="fillFuelAux()">Fill Fuel AUX</button>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:8px;">
+    Use <em>Fill Fuel MAIN / AUX</em> to copy the converted kg value into the corresponding fuel input fields (visible when DA42 selected). For DA20/DA40 use the Fuel field.
+  </div>
+</div>
+
+
+
+
 
     <div id="blockFuelSingle">
       <label id="labelFuelSingle">Fuel (kg):</label>
