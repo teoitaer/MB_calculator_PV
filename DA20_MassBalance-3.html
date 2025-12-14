@@ -34,11 +34,8 @@
 <body>
 <div class="container">
   <h1>Mass & Balance Calculator</h1>
-  <p class="lead">Supports DA20, DA40 and DA42 (I-MYOM, I-PVLL--------). Fuel inputs in <strong>kg</strong>.</p>
-
-  <!-- Fuel converter -->
-
-
+  
+  
 <!-- Aircraft selector and units -->
 <div>
   <div>
@@ -104,7 +101,7 @@
 
 <!-- Fuel converter -->
 <div class="converter">
-  <strong>Fuel Converter — US Gallons → kg</strong>
+  <strong>Fuel Converter — USGAL→kg</strong>
 
   <!-- Inputs in colonna -->
   <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
@@ -136,9 +133,7 @@
     </div>
   </div>
 
-  <div class="note" style="margin-top:8px;">
-    Use <em>Fill Fuel MAIN / AUX</em> to copy the converted kg value into the corresponding fuel input fields (visible when DA42 selected). For DA20/DA40 use the Fuel field.
-  </div>
+ 
 </div>
 
 
@@ -148,7 +143,6 @@
     <div id="blockFuelSingle">
       <label id="labelFuelSingle">Fuel (kg):</label>
       <input type="number" id="inputFuel" step="any" min="0">
-      <div class="small">For DA20/DA40 this is the single fuel quantity (kg).</div>
     </div>
 
     <div id="blockFuelMainAux" class="hidden">
@@ -159,8 +153,8 @@
     </div>
 
     <div style="margin-top:12px;">
-      <button onclick="calculate()">Calculate Mass & Balance</button>
-      <button class="secondary" onclick="resetInputs()">Reset inputs</button>
+      <button onclick="calculate()">Calculate M&B</button>
+      <button class="secondary" onclick="resetInputs()">Reset</button>
     </div>
   </div>
 
@@ -182,7 +176,7 @@
       </tr>
 
       <tr id="rowFront">
-        <td id="labelRowFront">People / Front Seats</td>
+        <td id="labelRowFront">Pilot/Front Pax</td>
         <td id="tdFrontW">-</td>
         <td id="tdFrontA">-</td>
         <td id="tdFrontM">-</td>
@@ -265,10 +259,7 @@
   <div class="result" id="finalResult">Totals: —</div>
   <div id="limitMessage" class="alert hidden"></div>
 
-  <!-- <div class="note" style="margin-top:14px;">
-    Note: Empty weights and empty moments are stored in the database for each aircraft. DA20 envelope uses points A-B-C-D come from AFM.
-  </div> -->
-
+  
 </div>
 
 <script>
@@ -821,7 +812,7 @@ function calculate() {
 
     if (outOfEnvelope) {
       lm.classList.remove('hidden'); lm.classList.add('alert');
-      lm.innerText = "⚠️ CG fuori inviluppo AFM (DA20). Controllare la distribuzione dei carichi.";
+      lm.innerText = "⚠️ CG outside Envelope (DA20).";
       document.getElementById('tdTotalA').classList.add('warning');
       document.getElementById('finalResult').classList.add('warning');
     } else {
@@ -831,9 +822,9 @@ function calculate() {
     if (overMTOW) {
       lm.classList.remove('hidden'); lm.classList.add('alert');
       if (outOfEnvelope) {
-        lm.innerText = "⚠️ CG fuori inviluppo AFM (DA20) · ⚠️ Peso sopra MTOW (800 kg)";
+        lm.innerText = "⚠️ CG outside Envelope (DA20) · ⚠️ Mass above MTOM (800 kg)";
       } else {
-        lm.innerText = "⚠️ Peso sopra MTOW (800 kg)";
+        lm.innerText = "⚠️ Mass above MTOM (800 kg)";
       }
       document.getElementById('tdTotalW').classList.add('warning');
       document.getElementById('finalResult').classList.add('warning');
@@ -842,7 +833,7 @@ function calculate() {
       if (!outOfEnvelope && !overMTOW) {
         document.getElementById('finalResult').classList.add('ok');
         lm.classList.remove('alert'); lm.classList.add('info'); lm.classList.remove('hidden');
-        lm.innerText = "✔️ Peso e CG dentro i limiti (DA20).";
+        lm.innerText = "✔️ Mass and CG within limits (DA20).";
       }
     }
 
@@ -866,14 +857,14 @@ function calculate() {
       const messages = [];
 
       if (outOfEnvelope) {
-        messages.push("⚠️ CG fuori inviluppo AFM (DA40).");
+        messages.push("⚠️ CG outside Envelope (DA40).");
         document.getElementById('tdTotalA').classList.add('warning');
       } else {
         document.getElementById('tdTotalA').classList.add('ok');
       }
 
       if (overMTOW) {
-        messages.push("⚠️ Peso sopra MTOW (1150 kg).");
+        messages.push("⚠️ Mass above MTOM (1150 kg).");
         document.getElementById('tdTotalW').classList.add('warning');
       } else {
         document.getElementById('tdTotalW').classList.add('ok');
@@ -881,9 +872,9 @@ function calculate() {
 
       // Category message (Normal if >980)
       if (isNormalCategory) {
-        messages.push("⚠️ Categoria: NORMAL (peso > 980 kg).");
+        messages.push("⚠️ Category: NORMAL (Mass > 980 kg).");
       } else {
-        messages.push("✔️ Categoria: UTILITY (peso ≤ 980 kg).");
+        messages.push("✔️ Category: UTILITY (Mass ≤ 980 kg).");
       }
 
       // Compose final UI state
